@@ -1,13 +1,54 @@
 #!/bin/bash
-echo "Please choose which python version you want to run ,i.e '3.6'"
-read PYTHON_VER
-echo "how many tests would you like to run ?"
-read NUM_OF_TESTS
+#deleting file from previous runs
+rm log.txt tests/in/* errorLOG.txt tests/out/* 2>>/dev/null
+rm -r tests/myouts 2>>/dev/null
+#making sure all the required files are there
+for i in hw2.py __init__.py _olympics.so generate_test_file.py olympics.py tests/in tests/out
+do
+	if [[ -f "$i" ]];then
+		continue
+	elif [[ -d "$i" ]]; then
+		continue
+	else
+		echo " ' ${i}'  is missing or not in place,check the description in GitHub for more details "
+		exit 1
+	fi
+	
+done
+#make sure the user insert VALID python version
+while true;
+do
+	   echo  " Please choose which python version you want to run ,i.e '3.6': " 
+	   read PYTHON_VER
+	   if [[ !($PYTHON_VER =~ ^[0-9.]+$) ]] ;then 
+   		echo "invalid input,make sure you enter only the version num"
+		continue
+	   fi
+	break   
+done
+#Choose the num of tests
+while true;
+do
+	echo "how many tests would you like to run?" 
+	read NUM_OF_TESTS
+	if [[ !($NUM_OF_TESTS =~ ^[0-9]+$) ]];then
+		echo "invalid input make sure to enter only numbers"
+		continue
+	fi
+	break
+done
 echo "Generating ${NUM_OF_TESTS} Tests..."
+#Generate random tests using 'generate_test_file.py'
 for (( i=1; i<=${NUM_OF_TESTS};i++ ))
 do
 	echo -en "\r$i"
-	python${PYTHON_VER} generate_test_file.py>>winner.txt
+	python${PYTHON_VER} generate_test_file.py>>winner.txt 2>>errorLOG.txt
+	if [[ -s errorLOG.txt ]];then
+		echo ""
+		echo "Error : in Generating files check errorLOG.txt for errors"
+		exit 1
+	fi
+	rm errorLOG.txt
         cat winner.txt>>out1.txt
 	cp test1.txt tests/in/test${i}.txt
 	cp out1.txt tests/out/out${i}.txt
@@ -17,19 +58,25 @@ do
 done
 echo ""
 echo "Done!"
-rm -r tests/myouts 2>/dev/null
-mkdir tests/myouts
+mkdir tests/myouts 2>>/dev/null
 echo "Running Tests..."
+#run tests on the user hw2.py file 
 for (( i=1; i<=${NUM_OF_TESTS};i++ ))
 do
 	echo -en "\r$i"
 	cp tests/in/test${i}.txt input.txt
-	python${PYTHON_VER} hw2.py>tests/myouts/out${i}.txt
+	python${PYTHON_VER} hw2.py>tests/myouts/out${i}.txt 2>>errorLOG.txt
+	if [[ -s errorLOG.txt ]]; then
+		echo ""
+		echo " Error: Running hw2.py has failed , check errorLOG.txt for errors"
+		exit 1
+	fi
+
 done
 echo ""
 echo "Done!"
+#run diff between user output and Generate_test_file output
 echo "looking for outputs diff..."
-rm log.txt 2>/dev/null
 touch log.txt
 echo "scroll down to see if there are diffrences:">>log.txt
 for (( i=1; i<=${NUM_OF_TESTS};i++ ))
@@ -39,6 +86,7 @@ do
 	 echo ${var}>>log.txt
 done
 echo ""
+rm errorLOG.txt
 if grep -q "differ" log.txt;then
 	echo "you didnt pass all tests,check log.txt file for more information"
 else
